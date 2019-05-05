@@ -494,7 +494,7 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields []*Field) {
 
 		for fieldIndex, field := range selectFields {
 			if field.DBName == column {
-				if field.Field.Kind() == reflect.Ptr {
+				if field.Field.Kind() == reflect.Ptr || (scope.overlap() && field.IsScanner) {
 					values[index] = field.Field.Addr().Interface()
 				} else {
 					reflectValue := reflect.New(reflect.PtrTo(field.Struct.Type))
@@ -519,6 +519,16 @@ func (scope *Scope) scan(rows *sql.Rows, columns []string, fields []*Field) {
 			field.Field.Set(v)
 		}
 	}
+}
+
+func (scope *Scope) overlap() bool {
+	overlap := false
+	if v, ok := scope.Get("gorm:overlap"); ok {
+		if b, ok := v.(bool); ok {
+			overlap = b
+		}
+	}
+	return overlap
 }
 
 func (scope *Scope) primaryCondition(value interface{}) string {
