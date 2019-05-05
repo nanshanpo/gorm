@@ -195,6 +195,21 @@ func (scope *Scope) handleHasManyPreload(field *Field, conditions []interface{})
 	// preload conditions
 	preloadDB, preloadConditions := scope.generatePreloadDBWithConditions(conditions)
 
+	if scope.overlap() {
+		indirectScopeValue := scope.IndirectValue()
+		resultsValue := indirectScopeValue.FieldByName(field.Name)
+		if resultsValue.Kind() == reflect.Slice {
+			for i := 0; i < resultsValue.Len(); i++ {
+				for j := 0; j < len(relation.AssociationForeignFieldNames); j++ {
+					resultsValue.Index(i).FieldByName(relation.ForeignFieldNames[j]).Set(indirectScopeValue.FieldByName(relation.AssociationForeignFieldNames[j]))
+				}
+				scope.Err(preloadDB.First(resultsValue.Index(i).Addr().Interface(), preloadConditions...).Error)
+			}
+
+			scope.Err(field.Set(resultsValue))
+			return
+		}
+	}
 	// find relations
 	query := fmt.Sprintf("%v IN (%v)", toQueryCondition(scope, relation.ForeignDBNames), toQueryMarks(primaryKeys))
 	values := toQueryValues(primaryKeys)
